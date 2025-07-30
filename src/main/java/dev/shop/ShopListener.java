@@ -5,6 +5,8 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.Chest;
+import org.bukkit.block.Container;
 import org.bukkit.block.Sign;
 import org.bukkit.block.data.Directional;
 import org.bukkit.entity.Player;
@@ -13,6 +15,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
@@ -61,7 +64,7 @@ public class ShopListener implements Listener {
         }
     }
 
-    // ===== チャット入力で値段/個数を設定 =====
+    // ===== チャット入力で値段/個数を設定 or 購入処理 =====
     @EventHandler
     public void onChat(AsyncPlayerChatEvent e) {
         Player p = e.getPlayer();
@@ -70,7 +73,7 @@ public class ShopListener implements Listener {
 
         e.setCancelled(true);
 
-        // 購入処理待ち
+        // --- 購入処理 ---
         if (pendingPurchase.containsKey(id)) {
             try {
                 int amount = Integer.parseInt(e.getMessage());
@@ -84,27 +87,70 @@ public class ShopListener implements Listener {
 
                 double totalCost = (price / shopAmount) * amount;
 
+                // お金が足りるかチェック
                 if (plugin.getEconomyManager().getMoney(p) < totalCost) {
                     p.sendMessage("§cお金が足りないため購入できません");
                     return;
                 }
 
-                plugin.getEconomyManager().removeMoney(p, totalCost);
+                // 樽/チェストから在庫を探す
+                Location chestLoc = sign.getLocation().clone().subtract(((Directional) sign.getBlock().getBlockData()).getFacing().getModX(),
+                        ((Directional) sign.getBlock().getBlockData()).getFacing().getModY(),
+                        ((Directional) sign.getBlock().getBlockData()).getFacing().getModZ());
+                Block chestBlock = chestLoc.getBlock();
+                if (!(chestBlock.getState() instanceof Container)) {
+                    p.sendMessage("§cショップの在庫チェストが見つかりません");
+                    return;
+                }
+                Inventory inv = ((Container) chestBlock.getState()).getInventory();
 
-                ItemStack item = new ItemStack(Material.matchMaterial(itemName), amount);
-                p.getInventory().addItem(item);
+                Material mat = Material.matchMaterial(itemName);
+                if (mat == null) {
+                    p.sendMessage("§c商品アイテムを特定できません");
+                    return;
+                }
+
+                // 在庫確認
+                int available = 0;
+                for (ItemStack is : inv.getContents()) {
+                    if (is != null && is.getType() == mat) {
+                        available += is.getAmount();
+                    }
+                }
+                if (available < amount) {
+                    p.sendMessage("§c在庫が足りません（残り " + available + " 個）");
+                    return;
+                }
+
+                // 在庫を減らす
+                int toRemove = amount;
+                for (int i = 0; i < inv.getSize(); i++) {
+                    ItemStack is = inv.getItem(i);
+                    if (is != null && is.getType() == mat) {
+                        int remove = Math.min(is.getAmount(), toRemove);
+                        is.setAmount(is.getAmount() - remove);
+                        if (is.getAmount() <= 0) inv.setItem(i, null);
+                        toRemove -= remove;
+                        if (toRemove <= 0) break;
+                    }
+                }
+
+                // お金のやり取り
+                plugin.getEconomyManager().removeMoney(p, totalCost);
+                plugin.getEconomyManager().addMoney(owner, totalCost); // ←オーナーの所持金に追加
+
+                // アイテム付与
+                p.getInventory().addItem(new ItemStack(mat, amount));
 
                 p.sendMessage("§a" + owner + " のショップから " + amount + "個購入しました！ -" + totalCost + " Yen");
 
-                // TODO: 本当はオーナーにお金を渡して、チェストから在庫を減らす処理も追加すべき
-
-            } catch (NumberFormatException ex) {
+            } catch (Exception ex) {
                 p.sendMessage("§c数字を入力してください");
             }
             return;
         }
 
-        // ショップ作成処理
+        // --- ショップ作成処理 ---
         String mode = step.get(id);
 
         if (mode.equals("PRICE")) {
@@ -174,10 +220,29 @@ public class ShopListener implements Listener {
         String itemName = sign.getLine(1);
         String amountPrice = sign.getLine(2);
 
+        // 在庫数を確認
+        int available = 0;
+        Location chestLoc = sign.getLocation().clone().subtract(((Directional) sign.getBlock().getBlockData()).getFacing().getModX(),
+                ((Directional) sign.getBlock().getBlockData()).getFacing().getModY(),
+                ((Directional) sign.getBlock().getBlockData()).getFacing().getModZ());
+        Block chestBlock = chestLoc.getBlock();
+        if (chestBlock.getState() instanceof Container) {
+            Inventory inv = ((Container) chestBlock.getState()).getInventory();
+            Material mat = Material.matchMaterial(itemName);
+            if (mat != null) {
+                for (ItemStack is : inv.getContents()) {
+                    if (is != null && is.getType() == mat) {
+                        available += is.getAmount();
+                    }
+                }
+            }
+        }
+
         p.sendMessage("§e=== ショップ情報 ===");
         p.sendMessage("§a所有者: " + owner);
         p.sendMessage("§bアイテム: " + itemName);
         p.sendMessage("§d価格: " + amountPrice);
+        p.sendMessage("§f在庫数: " + available);
         p.sendMessage("§6購入する場合はチャット欄に購入個数を入力してください。");
 
         pendingPurchase.put(p.getUniqueId(), sign);
