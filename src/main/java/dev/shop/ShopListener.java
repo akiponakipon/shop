@@ -1,5 +1,6 @@
 package dev.shop;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -29,7 +30,7 @@ public class ShopListener implements Listener {
         this.plugin = plugin;
     }
 
-    // ショップ作成開始
+    // ショップ作成開始（チェスト/樽を2回殴る）
     @EventHandler
     public void onChestClick(PlayerInteractEvent e) {
         if (e.getAction() != Action.LEFT_CLICK_BLOCK) return;
@@ -83,25 +84,26 @@ public class ShopListener implements Listener {
                 Location chest = tempChest.get(id);
                 Location signLoc = chest.clone().add(0, 1, 0);
 
-                // 看板設置処理
-                Block signBlock = signLoc.getBlock();
-                if (signBlock.getType() != Material.AIR) {
-                    p.sendMessage("§c看板を設置できるスペースがありません");
+                // 非同期イベントから同期タスクに渡す
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    Block signBlock = signLoc.getBlock();
+                    if (signBlock.getType() != Material.AIR) {
+                        p.sendMessage("§c看板を設置できるスペースがありません");
+                        cleanup(id);
+                        return;
+                    }
+                    signBlock.setType(Material.OAK_WALL_SIGN);
+                    Sign sign = (Sign) signBlock.getState();
+                    sign.setLine(0, ChatColor.GREEN + p.getName());
+                    sign.setLine(1, item.getType().name());
+                    sign.setLine(2, amount + "個/" + price + "Yen");
+                    sign.update();
+
+                    plugin.getShopManager().saveShop(id, p.getName(), chest, signLoc, item.getType().name(), amount, price);
+                    p.sendMessage("§aショップを作成しました！");
                     cleanup(id);
-                    return;
-                }
-                signBlock.setType(Material.OAK_WALL_SIGN);
-                Sign sign = (Sign) signBlock.getState();
-                sign.setLine(0, ChatColor.GREEN + p.getName());
-                sign.setLine(1, item.getType().name());
-                sign.setLine(2, amount + "個/" + price + "Yen");
-                sign.update();
+                });
 
-                // shops.yml に保存
-                plugin.getShopManager().saveShop(id, p.getName(), chest, signLoc, item.getType().name(), amount, price);
-
-                p.sendMessage("§aショップを作成しました！");
-                cleanup(id);
             } catch (NumberFormatException ex) {
                 p.sendMessage("§c数字を入力してください");
             }
