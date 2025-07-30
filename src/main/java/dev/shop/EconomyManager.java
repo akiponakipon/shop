@@ -1,67 +1,66 @@
 package dev.shop;
 
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
 
-public class EconomyManager implements Listener {
+public class EconomyManager {
+
     private final ShopPlugin plugin;
 
     public EconomyManager(ShopPlugin plugin) {
         this.plugin = plugin;
-        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
-    private File getPlayerFile(Player p) {
-        File dir = new File(plugin.getDataFolder(), "playerfile");
-        if (!dir.exists()) dir.mkdirs();
-        return new File(dir, p.getUniqueId().toString() + ".yml");
+    private File getPlayerFile(String name) {
+        File folder = new File(plugin.getDataFolder(), "playerfile");
+        if (!folder.exists()) folder.mkdirs();
+        return new File(folder, name + ".yml");
     }
 
-    private YamlConfiguration getPlayerConfig(Player p) {
-        return YamlConfiguration.loadConfiguration(getPlayerFile(p));
+    // --- 所持金を取得 ---
+    public double getMoney(Player player) {
+        return getMoney(player.getName());
     }
 
-    @EventHandler
-    public void onJoin(PlayerJoinEvent e) {
-        Player p = e.getPlayer();
-        File f = getPlayerFile(p);
-        if (!f.exists()) {
-            try {
-                f.createNewFile();
-                YamlConfiguration cfg = new YamlConfiguration();
-                cfg.set("money", 0.0);
-                cfg.save(f);
-            } catch (IOException ex) {
-                ex.printStackTrace();
-            }
-        }
+    public double getMoney(String playerName) {
+        File file = getPlayerFile(playerName);
+        if (!file.exists()) return 0;
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
+        return config.getDouble("money", 0);
     }
 
-    public double getMoney(Player p) {
-        return getPlayerConfig(p).getDouble("money", 0);
-    }
-
-    public void setMoney(Player p, double amount) {
-        YamlConfiguration config = getPlayerConfig(p);
+    // --- 所持金を設定 ---
+    public void setMoney(String playerName, double amount) {
+        File file = getPlayerFile(playerName);
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
         config.set("money", amount);
         try {
-            config.save(getPlayerFile(p));
+            config.save(file);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public void addMoney(Player p, double amount) {
-        setMoney(p, getMoney(p) + amount);
+    // --- お金を追加 ---
+    public void addMoney(Player player, double amount) {
+        addMoney(player.getName(), amount);
     }
 
-    public void removeMoney(Player p, double amount) {
-        setMoney(p, Math.max(0, getMoney(p) - amount));
+    public void addMoney(String playerName, double amount) {
+        double current = getMoney(playerName);
+        setMoney(playerName, current + amount);
+    }
+
+    // --- お金を減らす ---
+    public void removeMoney(Player player, double amount) {
+        removeMoney(player.getName(), amount);
+    }
+
+    public void removeMoney(String playerName, double amount) {
+        double current = getMoney(playerName);
+        setMoney(playerName, Math.max(0, current - amount));
     }
 }
