@@ -1,53 +1,45 @@
-package dev.shop;
+package dev.shop.commands;
 
-import dev.shop.commands.MoneyCommand;
-import dev.shop.commands.SellCommand;
-import org.bukkit.plugin.java.JavaPlugin;
+import dev.shop.ShopPlugin;
+import org.bukkit.Material;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
-public class ShopPlugin extends JavaPlugin {
+public class SellCommand implements CommandExecutor {
 
-    private static ShopPlugin instance;
-    private ShopManager shopManager;
-    private BlacklistManager blacklistManager;
-    private EconomyManager economyManager;
+    private final ShopPlugin plugin;
+
+    public SellCommand(ShopPlugin plugin) {
+        this.plugin = plugin;
+    }
 
     @Override
-    public void onEnable() {
-        instance = this;
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cプレイヤーのみが使用できます");
+            return true;
+        }
+        Player p = (Player) sender;
+        ItemStack item = p.getInventory().getItemInMainHand();
 
-        // データフォルダ作成
-        if (!getDataFolder().exists()) {
-            getDataFolder().mkdirs();
+        if (item == null || item.getType() == Material.AIR) {
+            p.sendMessage("§c手に売却できるアイテムを持ってください");
+            return true;
         }
 
-        // マネージャー初期化
-        this.shopManager = new ShopManager(this);
-        this.blacklistManager = new BlacklistManager(this);
-        this.economyManager = new EconomyManager(this);
-
-        // イベント登録
-        getServer().getPluginManager().registerEvents(new ShopListener(this), this);
-
-        // コマンド登録
-        getCommand("sell").setExecutor(new SellCommand(this));
-        getCommand("money").setExecutor(new MoneyCommand(this));
-
-        getLogger().info("Shop Plugin Enabled!");
-    }
-
-    public static ShopPlugin getInstance() {
-        return instance;
-    }
-
-    public ShopManager getShopManager() {
-        return shopManager;
-    }
-
-    public BlacklistManager getBlacklistManager() {
-        return blacklistManager;
-    }
-
-    public EconomyManager getEconomyManager() {
-        return economyManager;
+        // 例: 石炭を 0.005 Yen で売る
+        if (item.getType() == Material.COAL) {
+            int amount = item.getAmount();
+            double price = 0.005 * amount;
+            plugin.getEconomyManager().addMoney(p, price);
+            p.getInventory().setItemInMainHand(null);
+            p.sendMessage("§a" + amount + "個の石炭を " + price + " Yen で売却しました！");
+        } else {
+            p.sendMessage("§eこのアイテムは売却できません");
+        }
+        return true;
     }
 }
