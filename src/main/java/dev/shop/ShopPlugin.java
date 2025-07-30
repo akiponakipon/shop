@@ -1,53 +1,19 @@
-package dev.shop;
+@Override
+public void onEnable() {
+    instance = this;
 
-import dev.shop.commands.MoneyCommand;
-import dev.shop.commands.SellCommand;
-import org.bukkit.plugin.java.JavaPlugin;
+    this.shopManager = new ShopManager(this);
+    this.blacklistManager = new BlacklistManager(this);
+    this.economyManager = new EconomyManager(this);
 
-public class ShopPlugin extends JavaPlugin {
+    getServer().getPluginManager().registerEvents(new ShopListener(this), this);
 
-    private static ShopPlugin instance;
-    private ShopManager shopManager;
-    private BlacklistManager blacklistManager;
-    private EconomyManager economyManager;
+    // SellCommand をインスタンス化して両方に渡す
+    SellCommand sellCommand = new SellCommand(this);
 
-    @Override
-    public void onEnable() {
-        instance = this;
+    getCommand("sell").setExecutor(sellCommand);
+    getCommand("selllist").setExecutor(new SellListCommand(this, sellCommand));
+    getCommand("money").setExecutor(new MoneyCommand(this));
 
-        // データフォルダ作成
-        if (!getDataFolder().exists()) {
-            getDataFolder().mkdirs();
-        }
-
-        // マネージャー初期化
-        this.shopManager = new ShopManager(this);
-        this.blacklistManager = new BlacklistManager(this);
-        this.economyManager = new EconomyManager(this);
-
-        // イベント登録
-        getServer().getPluginManager().registerEvents(new ShopListener(this), this);
-
-        // コマンド登録
-        getCommand("sell").setExecutor(new SellCommand(this));
-        getCommand("money").setExecutor(new MoneyCommand(this));
-
-        getLogger().info("Shop Plugin Enabled!");
-    }
-
-    public static ShopPlugin getInstance() {
-        return instance;
-    }
-
-    public ShopManager getShopManager() {
-        return shopManager;
-    }
-
-    public BlacklistManager getBlacklistManager() {
-        return blacklistManager;
-    }
-
-    public EconomyManager getEconomyManager() {
-        return economyManager;
-    }
+    getLogger().info("Shop Plugin Enabled!");
 }
