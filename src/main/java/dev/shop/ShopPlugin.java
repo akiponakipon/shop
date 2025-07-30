@@ -1,5 +1,7 @@
 package dev.shop;
 
+import dev.shop.commands.MoneyCommand;
+import dev.shop.commands.SellCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class ShopPlugin extends JavaPlugin {
@@ -23,8 +25,12 @@ public class ShopPlugin extends JavaPlugin {
         this.blacklistManager = new BlacklistManager(this);
         this.economyManager = new EconomyManager(this);
 
-        // リスナー登録
+        // イベント登録
         getServer().getPluginManager().registerEvents(new ShopListener(this), this);
+
+        // コマンド登録
+        getCommand("sell").setExecutor(new SellCommand(this));
+        getCommand("money").setExecutor(new MoneyCommand(this));
 
         getLogger().info("Shop Plugin Enabled!");
     }
