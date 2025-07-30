@@ -1,0 +1,17 @@
+name: Shop
+version: 1.0
+main: dev.shop.ShopPlugin
+api-version: 1.20
+commands:
+  sell:
+    description: 手に持っている売却可能アイテムを売却する
+  selllist:
+    description: 売却可能なアイテムと価格を表示する
+  money:
+    description: 自分の所持金を確認する
+  shophelp:
+    description: プラグインの説明を表示する
+  shopcommandlist:
+    description: 利用可能なコマンド一覧を表示する
+  officialshop:
+    description: 公式ショップを開く
