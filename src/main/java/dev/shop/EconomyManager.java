@@ -2,15 +2,19 @@ package dev.shop;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 
 import java.io.File;
 import java.io.IOException;
 
-public class EconomyManager {
+public class EconomyManager implements Listener {
     private final ShopPlugin plugin;
 
     public EconomyManager(ShopPlugin plugin) {
         this.plugin = plugin;
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     private File getPlayerFile(Player p) {
@@ -21,6 +25,22 @@ public class EconomyManager {
 
     private YamlConfiguration getPlayerConfig(Player p) {
         return YamlConfiguration.loadConfiguration(getPlayerFile(p));
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent e) {
+        Player p = e.getPlayer();
+        File f = getPlayerFile(p);
+        if (!f.exists()) {
+            try {
+                f.createNewFile();
+                YamlConfiguration cfg = new YamlConfiguration();
+                cfg.set("money", 0.0);
+                cfg.save(f);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 
     public double getMoney(Player p) {
